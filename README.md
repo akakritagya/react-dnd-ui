@@ -14,6 +14,8 @@ https://react-dnd-ui.vercel.app/
 5. Copy `.env.local.example` to `.env.local` and fill in those two values.
 6. `npm run dev`
 
+If you deploy this to a hosting platform (e.g. Vercel), also set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as environment variables in that platform's project settings — not just locally in `.env.local` — otherwise the deployed build ships with whatever placeholder values were baked in at build time.
+
 ## Testing
 
 `npm test` runs the Vitest unit tests (currently: the card/column reorder helpers).

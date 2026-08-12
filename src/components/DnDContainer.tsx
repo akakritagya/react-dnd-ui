@@ -13,6 +13,7 @@ const DnDContainer = () => {
     columns,
     loading,
     error,
+    loadError,
     dismissError,
     refetch,
     addColumn,
@@ -57,13 +58,12 @@ const DnDContainer = () => {
     return <p className="text-slate-400">Loading your board...</p>;
   }
 
-  // error with zero columns means the initial fetch itself failed (a
-  // successful fetch for a brand-new user still yields columns: [] with
-  // error: null), so this is unambiguously the "retry the load" case.
-  if (error && columns.length === 0) {
+  // loadError is set only by the initial fetch, so this is unambiguously
+  // the "retry the load" case, distinct from a mutation failure (error).
+  if (loadError) {
     return (
       <div className="flex flex-col items-center gap-3">
-        <p className="text-rose-600 text-sm">{error}</p>
+        <p className="text-rose-600 text-sm">{loadError}</p>
         <button
           onClick={refetch}
           className="bg-indigo-600 text-white text-sm font-medium rounded-lg px-3 py-1.5 hover:bg-indigo-700 transition-colors"

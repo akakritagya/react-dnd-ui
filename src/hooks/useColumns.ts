@@ -29,10 +29,11 @@ const useColumns = (userId: string) => {
   const [columns, setColumns] = useState<columnData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const fetchColumns = useCallback(async () => {
     setLoading(true);
-    setError(null);
+    setLoadError(null);
 
     const [columnsRes, cardsRes] = await Promise.all([
       supabase.from("columns").select("id, title, position").eq("user_id", userId).order("position"),
@@ -44,7 +45,7 @@ const useColumns = (userId: string) => {
     ]);
 
     if (columnsRes.error || cardsRes.error) {
-      setError((columnsRes.error ?? cardsRes.error)!.message);
+      setLoadError((columnsRes.error ?? cardsRes.error)!.message);
       setLoading(false);
       return;
     }
@@ -105,9 +106,11 @@ const useColumns = (userId: string) => {
   const deleteColumn = async (columnId: string) => {
     const previousColumns = columns;
     const optimisticColumns = columns.filter((col) => col.id !== columnId);
-    await withRollback(previousColumns, optimisticColumns, async () =>
-      supabase.from("columns").delete().eq("id", columnId)
-    );
+    await withRollback(previousColumns, optimisticColumns, async () => {
+      const { error: deleteError } = await supabase.from("columns").delete().eq("id", columnId);
+      if (deleteError) return { error: deleteError };
+      return persistColumnPositions(optimisticColumns);
+    });
   };
 
   const addCard = async (columnId: string, title: string) => {
@@ -160,14 +163,25 @@ const useColumns = (userId: string) => {
     const optimisticColumns = columns.map((col) =>
       col.id === columnId ? { ...col, children: col.children.filter((c) => c.id !== cardId) } : col
     );
-    await withRollback(previousColumns, optimisticColumns, async () =>
-      supabase.from("cards").delete().eq("id", cardId)
-    );
+    const remainingCards = optimisticColumns.find((col) => col.id === columnId)!.children;
+    await withRollback(previousColumns, optimisticColumns, async () => {
+      const { error: deleteError } = await supabase.from("cards").delete().eq("id", cardId);
+      if (deleteError) return { error: deleteError };
+      return persistCardPositions(remainingCards);
+    });
   };
 
   const persistCardPositions = async (cards: { id: string }[]): Promise<PersistResult> => {
     const results = await Promise.all(
       cards.map((card, index) => supabase.from("cards").update({ position: index }).eq("id", card.id))
+    );
+    const failed = results.find((r) => r.error);
+    return { error: failed?.error ?? null };
+  };
+
+  const persistColumnPositions = async (cols: { id: string }[]): Promise<PersistResult> => {
+    const results = await Promise.all(
+      cols.map((col, index) => supabase.from("columns").update({ position: index }).eq("id", col.id))
     );
     const failed = results.find((r) => r.error);
     return { error: failed?.error ?? null };
@@ -216,21 +230,16 @@ const useColumns = (userId: string) => {
   const reorderColumns = async (startIndex: number, endIndex: number) => {
     const previousColumns = columns;
     const optimisticColumns = reorderColumnsList(columns, startIndex, endIndex);
-    await withRollback(previousColumns, optimisticColumns, async () => {
-      const results = await Promise.all(
-        optimisticColumns.map((col, index) =>
-          supabase.from("columns").update({ position: index }).eq("id", col.id)
-        )
-      );
-      const failed = results.find((r) => r.error);
-      return { error: failed?.error ?? null };
-    });
+    await withRollback(previousColumns, optimisticColumns, () =>
+      persistColumnPositions(optimisticColumns)
+    );
   };
 
   return {
     columns,
     loading,
     error,
+    loadError,
     dismissError,
     refetch: fetchColumns,
     addColumn,
