@@ -1296,6 +1296,7 @@ const ColumnItem: React.FC<ColumnItemProps> = ({ item, index, onRename, onDelete
                 onChange={(e) => setTitle(e.target.value)}
                 onBlur={commitRename}
                 onKeyDown={(e) => {
+                  e.stopPropagation();
                   if (e.key === "Enter") commitRename();
                   if (e.key === "Escape") {
                     setTitle(item.title);
@@ -1500,6 +1501,7 @@ const Column: React.FC<ColumnProps> = ({
                 onChange={(e) => setTitle(e.target.value)}
                 onBlur={commitRename}
                 onKeyDown={(e) => {
+                  e.stopPropagation();
                   if (e.key === "Enter") commitRename();
                   if (e.key === "Escape") {
                     setTitle(column.title);
