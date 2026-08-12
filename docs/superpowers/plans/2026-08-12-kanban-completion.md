@@ -1037,7 +1037,7 @@ const useColumns = (userId: string) => {
   const renameColumn = async (columnId: string, title: string) => {
     const previousColumns = columns;
     const optimisticColumns = columns.map((col) => (col.id === columnId ? { ...col, title } : col));
-    await withRollback(previousColumns, optimisticColumns, () =>
+    await withRollback(previousColumns, optimisticColumns, async () =>
       supabase.from("columns").update({ title }).eq("id", columnId)
     );
   };
@@ -1045,7 +1045,7 @@ const useColumns = (userId: string) => {
   const deleteColumn = async (columnId: string) => {
     const previousColumns = columns;
     const optimisticColumns = columns.filter((col) => col.id !== columnId);
-    await withRollback(previousColumns, optimisticColumns, () =>
+    await withRollback(previousColumns, optimisticColumns, async () =>
       supabase.from("columns").delete().eq("id", columnId)
     );
   };
@@ -1090,7 +1090,7 @@ const useColumns = (userId: string) => {
         ? { ...col, children: col.children.map((c) => (c.id === cardId ? { ...c, title } : c)) }
         : col
     );
-    await withRollback(previousColumns, optimisticColumns, () =>
+    await withRollback(previousColumns, optimisticColumns, async () =>
       supabase.from("cards").update({ title }).eq("id", cardId)
     );
   };
@@ -1100,7 +1100,7 @@ const useColumns = (userId: string) => {
     const optimisticColumns = columns.map((col) =>
       col.id === columnId ? { ...col, children: col.children.filter((c) => c.id !== cardId) } : col
     );
-    await withRollback(previousColumns, optimisticColumns, () =>
+    await withRollback(previousColumns, optimisticColumns, async () =>
       supabase.from("cards").delete().eq("id", cardId)
     );
   };
