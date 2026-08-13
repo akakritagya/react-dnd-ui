@@ -1,99 +1,110 @@
-import { DragDropContext, Droppable, DropResult } from "react-beautiful-dnd";
+import { DragDropContext, Droppable, DropResult } from "@hello-pangea/dnd";
 
 import Column from "./Column";
-import { columns, columnsOrder } from "@/utils/dummy-data";
-import { columnData } from "@/types/column";
-import useLocalStorage from "@/hooks/useLocalStorage";
+import AddColumnForm from "./AddColumnForm";
+import EmptyState from "./EmptyState";
+import ErrorBanner from "./ErrorBanner";
+import useColumns from "@/hooks/useColumns";
+import { useAuth } from "@/auth/AuthContext";
 
 const DnDContainer = () => {
-  const [columnsData, setColumnsData] = useLocalStorage<columnData[]>(
-    "colsData",
-    columns
-  );
-
-  const [colsOrder, setColsOrder] = useLocalStorage<string[]>(
-    "colsOrder",
-    columnsOrder
-  );
+  const { user } = useAuth();
+  const {
+    columns,
+    loading,
+    error,
+    loadError,
+    dismissError,
+    refetch,
+    addColumn,
+    renameColumn,
+    deleteColumn,
+    addCard,
+    renameCard,
+    deleteCard,
+    reorderCardsWithinColumn,
+    moveCardBetweenColumns,
+    reorderColumns,
+  } = useColumns(user!.id);
 
   const onDragEnd = (result: DropResult) => {
     const { source, destination, type } = result;
 
-    // if dropped outside the droppable, then destination is null
-    if (!destination) {
+    if (!destination) return;
+    if (destination.droppableId === source.droppableId && destination.index === source.index) {
       return;
     }
 
-    // if the draggable is dropped in its own position
-    if (
-      destination.droppableId === source.droppableId &&
-      destination.index === source.index
-    ) {
-      return;
-    }
-
-    /*------------REORDER  ITEM AND COLUMN AFTER DRAG AND DROP------------*/
-
-    const copyOfColumnsData = [...columnsData];
-    const copyOfColumnsOrder = [...colsOrder];
-
-    // when item from the column is dragged and dropped
     if (type === "item") {
-      // remove dragged item from the source column
-      const draggedItem = copyOfColumnsData[
-        copyOfColumnsOrder.indexOf(source.droppableId)
-      ].children.splice(source.index, 1)[0];
-
-      // add dragged item into the destination column
-      copyOfColumnsData[
-        copyOfColumnsOrder.indexOf(destination.droppableId)
-      ].children.splice(destination.index, 0, draggedItem);
-
-      // update state
-      setColumnsData(copyOfColumnsData);
+      if (source.droppableId === destination.droppableId) {
+        reorderCardsWithinColumn(source.droppableId, source.index, destination.index);
+      } else {
+        moveCardBetweenColumns(
+          source.droppableId,
+          destination.droppableId,
+          source.index,
+          destination.index
+        );
+      }
       return;
     }
 
-    // when the column is dragged and dropped
     if (type === "column") {
-      const draggedColumn = copyOfColumnsData.splice(source.index, 1)[0];
-      const draggedColumnId = copyOfColumnsOrder.splice(source.index, 1)[0];
-
-      copyOfColumnsData.splice(destination.index, 0, draggedColumn);
-      copyOfColumnsOrder.splice(destination.index, 0, draggedColumnId);
-
-      // update state
-      setColumnsData(copyOfColumnsData);
-      setColsOrder(copyOfColumnsOrder);
-      return;
+      reorderColumns(source.index, destination.index);
     }
   };
 
+  if (loading) {
+    return <p className="text-slate-400">Loading your board...</p>;
+  }
+
+  // loadError is set only by the initial fetch, so this is unambiguously
+  // the "retry the load" case, distinct from a mutation failure (error).
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center gap-3">
+        <p className="text-rose-600 text-sm">{loadError}</p>
+        <button
+          onClick={refetch}
+          className="bg-indigo-600 text-white text-sm font-medium rounded-lg px-3 py-1.5 hover:bg-indigo-700 transition-colors"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   return (
-    // container is both drag-n-drop-context and droppable
-    <DragDropContext onDragEnd={onDragEnd} key="drag-drop-context">
-      <Droppable
-        droppableId="container"
-        key="container"
-        direction="horizontal"
-        type="column"
-      >
-        {(provided, snapshot) => (
-          <div
-            ref={provided.innerRef}
-            {...provided.droppableProps}
-            className={`w-full h-max flex justify-center gap-8 transition-colors ease-in duration-300 ${
-              snapshot.isDraggingOver ? "bg-rose-100" : "bg-white"
-            }`}
-          >
-            {columnsData.map((column, index) => (
-              <Column key={column.id} column={column} index={index} />
-            ))}
-            {provided.placeholder}
-          </div>
-        )}
-      </Droppable>
-    </DragDropContext>
+    <div className="w-full flex flex-col items-center gap-4">
+      {error && <ErrorBanner message={error} onDismiss={dismissError} />}
+      <DragDropContext onDragEnd={onDragEnd} key="drag-drop-context">
+        <Droppable droppableId="container" key="container" direction="horizontal" type="column">
+          {(provided) => (
+            <div
+              ref={provided.innerRef}
+              {...provided.droppableProps}
+              className="w-full h-max flex justify-center flex-wrap gap-8 px-8"
+            >
+              {columns.map((column, index) => (
+                <Column
+                  key={column.id}
+                  column={column}
+                  index={index}
+                  onRenameColumn={renameColumn}
+                  onDeleteColumn={deleteColumn}
+                  onAddCard={addCard}
+                  onRenameCard={renameCard}
+                  onDeleteCard={deleteCard}
+                />
+              ))}
+              {provided.placeholder}
+              <AddColumnForm onAddColumn={addColumn} />
+            </div>
+          )}
+        </Droppable>
+      </DragDropContext>
+      {columns.length === 0 && <EmptyState />}
+    </div>
   );
 };
 

@@ -1,14 +1,23 @@
-import DnDContainer from "./components/DnDContainer";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 
-const App = () => {
-  return (
-    <div className=" w-screen h-screen font-rubik flex flex-col items-center py-8 gap-8">
-      <h1 className=" text-center text-3xl font-medium">
-        Drag and Drop Interface Using React
-      </h1>
-      <DnDContainer />
-    </div>
-  );
-};
+import { AuthProvider } from "@/auth/AuthContext";
+import ProtectedRoute from "@/auth/ProtectedRoute";
+import LoginPage from "@/auth/LoginPage";
+import SignupPage from "@/auth/SignupPage";
+import BoardPage from "./components/BoardPage";
+
+const App = () => (
+  <BrowserRouter>
+    <AuthProvider>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route element={<ProtectedRoute />}>
+          <Route path="/" element={<BoardPage />} />
+        </Route>
+      </Routes>
+    </AuthProvider>
+  </BrowserRouter>
+);
 
 export default App;
